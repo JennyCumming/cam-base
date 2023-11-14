@@ -1,0 +1,12 @@
+name = Lookup groups to Drupal roles
+description = Allows the use of groups in Lookup to assign Drupal roles
+core = 7.x
+package = University of Cambridge
+version = 7.x-1.0
+configure = admin/config/people/raven/lookup_roles
+
+dependencies[] = user
+dependencies[] = raven
+dependencies[] = simple_lookup
+
+

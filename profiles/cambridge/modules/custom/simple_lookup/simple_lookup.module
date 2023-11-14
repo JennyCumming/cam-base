@@ -1,0 +1,34 @@
+<?php
+
+define('LOOKUP_DEFAULT_API_USERNAME', 'anonymous');
+define('LOOKUP_DEFAULT_API_PASSWORD', '');
+define('LOOKUP_ADMIN_BASE_PATH', 'admin/config/services/lookup');
+define('LOOKUP_QUEUE_BATCH_SIZE', 100);
+
+
+/**
+ * Implements hook_user_login().
+ *
+ * Could be a good addition but not needed for migration
+ */
+//function lookup_user_login(&$edit, $account) {
+//  if (module_exists('raven') && is_raven_user($account)) {
+//    lookup_update_person($account->name, FALSE);
+//  }
+//}
+
+
+/**
+ * Get Lookup connection.
+ *
+ * @return IbisClientConnection
+ *   Lookup connection.
+ */
+function _simple_lookup_connection() {
+  $ibisConnection = IbisClientConnection::createConnection();
+
+  $ibisConnection->setUsername(LOOKUP_DEFAULT_API_USERNAME);
+  $ibisConnection->setPassword(LOOKUP_DEFAULT_API_PASSWORD);
+
+  return $ibisConnection;
+}

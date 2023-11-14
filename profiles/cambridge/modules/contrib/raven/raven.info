@@ -1,0 +1,12 @@
+name = Raven authentication
+description = Allows users to authenticate with Raven.
+core = 7.x
+package = University of Cambridge
+version = 7.x-1.7
+configure = admin/config/people/raven
+
+dependencies[] = user
+dependencies[] = simple_lookup
+
+files[] = raven.module
+files[] = raven.rules.inc

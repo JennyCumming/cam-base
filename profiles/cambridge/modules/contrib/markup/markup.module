@@ -1,0 +1,195 @@
+<?php
+
+/**
+ * @file
+ * Defines a field type for displaying markup on the node/edit form.
+ */
+
+/**
+ * Implements hook_field_info().
+ */
+function markup_field_info() {
+  return array(
+    'markup' => array(
+      'label' => 'Markup',
+      'description' => t('Provides field to output markup on the entities edit form'),
+      'default_widget' => 'markup',
+      'default_formatter' => 'markup_default',
+      'settings' => array(
+        'markup' => array(
+          'format' => filter_default_format(),
+        ),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function markup_field_formatter_info() {
+  return array(
+    'markup_default' => array(
+      'label' => t('Edit form only'),
+      'description' => t('Markup will only be displayed when a user is on the edit page.'),
+      'field types' => array('markup'),
+    ),
+    'markup_display' => array(
+      'label' => t('Display only'),
+      'description' => t('Markup will only be displayed when a user is viewing the entity.'),
+      'field types' => array('markup'),
+    ),
+    'markup_view' => array(
+      'label' => t('Always visible'),
+      'description' => t('Displays the markup on the edit form and on the entity display.'),
+      'field types' => array('markup'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_prepare_view().
+ */
+function markup_field_formatter_prepare_view($entity_type, $entities, $field, $instances, $langcode, &$items, $displays) {
+  if ($field['type'] != 'markup') {
+    return;
+  }
+
+  // Set item value to markup for all to-be-displayed markup.
+  foreach ($items as $eid => $item) {
+    $instance = $instances[$eid];
+    if (in_array($instance['display']['default']['type'], ['markup_view', 'markup_display'])) {
+      // Add to display form in 'Always visible' and 'Display only' formatter.
+      // Since markup is always a single item, add to the first item:
+      $items[$eid][0]['markup'] = markup_translate_instance($field, $instance);
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function markup_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  foreach ($items as $delta => $item) {
+    $element[$delta]['#markup'] = $item['markup'];
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_field_settings_form().
+ */
+function markup_field_settings_form($field, $instance, $has_data) {
+  $form = array();
+  $settings = $field['settings'];
+  $form['markup'] = array(
+    '#type' => 'text_format',
+    '#title' => t('Markup'),
+    '#default_value' => isset($settings['markup']['value']) ? $settings['markup']['value'] : '',
+    '#format' => isset($settings['markup']['format']) ? $settings['markup']['format'] : filter_default_format(),
+    '#required' => TRUE,
+    '#rows' => 15,
+    '#description' => t('The markup to be displayed. Any HTML is legal here, so be careful not to break your page layout.'),
+  );
+  $form['instructions'] = array(
+    '#markup' => htmlentities(t('This is a special field. It will output the markup below. Consider wrapping any visible output in <div class="form-item"></div> to follow form standards.')),
+    '#weight' => -1,
+  );
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function markup_field_widget_info() {
+  return array(
+    'markup' => array(
+      'label' => 'Markup',
+      'field types' => array('markup'),
+      'behaviors' => array(
+        'multiple values' => FIELD_BEHAVIOR_DEFAULT,
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function markup_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  // Setting default field value if it is not set yet.
+  if (!isset($field['settings']['markup']['value'])) {
+    $field['settings']['markup']['value'] = '';
+  }
+  if (in_array($instance['display']['default']['type'], ['markup_view', 'markup_default'])) {
+    // Add to display form in 'Always visible' and 'Edit form only' formatter.
+    $element += array(
+      'markup' => array(
+        '#markup' => markup_translate_instance($field, $instance),
+      ),
+    );
+  }
+  
+  return $element;
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function markup_field_is_empty($item, $field) {
+  return empty($item['markup']);
+}
+
+/**
+ * Remove 'number of values' selection.
+ */
+function markup_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'field_ui_field_edit_form') {
+    if ($form['#field']['module'] == 'markup') {
+      unset($form['field']['cardinality']);
+    }
+  }
+}
+
+/**
+ * Implements hook_i18n_string_list_TEXTGROUP_alter().
+ */
+function markup_i18n_string_list_field_alter(&$strings, $type = NULL, $object = NULL) {
+  if ($type != 'field' || !is_array($object) || !isset($object['type'])) {
+    return;
+  }
+  if ($object['type'] == 'markup' && isset($object['settings']['markup']['value'])) {
+    $strings['field'][$object['field_name']]['#field']['markup']['string'] = $object['settings']['markup']['value'];
+    $strings['field'][$object['field_name']]['#field']['markup']['title'] = t('Markup');
+    $strings['field'][$object['field_name']]['#field']['markup']['format'] = $object['settings']['markup']['format'];
+  }
+}
+
+/**
+ * Tries to translate the value of the field.
+ *
+ * @param array $field
+ *   The field structure for the markup field.
+ * @param array $instance
+ *   The field instance that is being translated.
+ *
+ * @return string
+ *   Either the translated value or the original value. In both cases, the
+ *   string is "display safe".
+ */
+function markup_translate_instance($field, $instance) {
+  // Translate the markup setting when possible.
+  if (function_exists('i18n_string_text')) {
+    $i18n_string_name = "field:{$instance['field_name']}:#field:markup";
+    $options = array(
+      'format' => $field['settings']['markup']['format'],
+      // Apply text filter for source.
+      'sanitize default' => TRUE,
+    );
+    return i18n_string_text($i18n_string_name, $field['settings']['markup']['value'], $options);
+  }
+
+  return check_markup($field['settings']['markup']['value'], $field['settings']['markup']['format']);
+}

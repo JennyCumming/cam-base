@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function cam_tokens_entity_property_info_alter(&$info) {
+  $info['node']['properties']['current-revision-author-mail'] = array(
+    'label' => t('Revision author email'),
+    'type' => 'text',
+    'description' => t('The email of the author of the current revision of the node.'),
+    'computed' => TRUE,
+    'field' => FALSE,
+  );
+}
+
+
+/**
+ * Implements hook_tokens().
+ * Set the value of the token to the email address of the author of the revision
+ */
+function cam_tokens_tokens($type, $tokens, array $data = array(), array $options = array()) {
+  if ($type == 'entity' && $data['entity_type'] == 'node') {
+    $values = array ();
+    foreach ($tokens as $token => $full_token) {
+      switch ($token) {
+        case 'current-revision-author-mail':
+          $node = $data['entity'];
+          $account = user_load($node->revision_uid);
+          $values[$full_token] = $account->mail;
+          break;
+      }
+    }
+    return $values;
+  }
+}

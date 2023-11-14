@@ -1,0 +1,8 @@
+name = Cam Tokens
+description = Provides custom tokens for use in Rules.
+core = 7.x
+package = University of Cambridge
+version = 7.x-1.0
+project = cam_tokens
+
+dependencies[] = token

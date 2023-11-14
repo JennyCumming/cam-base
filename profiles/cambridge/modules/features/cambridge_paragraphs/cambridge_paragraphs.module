@@ -1,0 +1,66 @@
+<?php
+/**
+ * @file
+ * Code for the Cambridge Paragraphs feature.
+ */
+
+include_once 'cambridge_paragraphs.features.inc';
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function cambridge_paragraphs_theme_registry_alter(&$theme_registry) {
+
+  $theme_registry['paragraphs_item__text_block'] = array(
+    'theme path' => drupal_get_path('module','cambridge_paragraphs'),
+    'template' => drupal_get_path('module','cambridge_paragraphs') . '/templates/paragraphs-item--text_block',
+    'type' => 'module',
+  );
+
+}
+
+function cambridge_paragraphs_preprocess_entity(&$vars) {
+
+  if( $vars['entity_type'] == 'paragraphs_item') {
+     //dpm($vars['elements']);
+
+    if($vars['elements']['#bundle'] == 'text_block' ) {
+
+      $vars['theme_hook_suggestions'][] = 'paragraphs_item__text_block';
+      $vars['theme_hook_suggestion'] = 'paragraphs_item__text_block';
+
+      $caption_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_image_caption');
+      $vars['caption_text'] = $caption_items[0]['safe_value'];
+      $align_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_image_alignment');
+      $vars['image_alignment'] = ($align_items[0]['value'] == 'left') ? 'campl-float-left' : 'campl-float-right';
+
+      $style_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_image_style');
+      $vars['image_style'] = ($style_items[0]['value'] == 'original') ? '' : $style_items[0]['value'];
+
+      $heading_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_paragraph_heading');
+      $link_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_image_link');
+      $image_items = field_get_items('paragraphs_item', $vars['paragraphs_item'], 'field_image');
+
+      $vars['has_image'] = !empty($image_items);
+      $vars['has_heading'] = !empty($heading_items);
+      $vars['image_link'] = (!empty($link_items)) ? $link_items[0]['url']: null;
+
+      // If we have a link with a custom title then output it as call to action button
+      if(isset($vars['image_link']) && ($link_items[0]['url'] != $link_items[0]['title'])) {
+        $vars['button_link'] = '<div class="campl-content-container"> <a href="' . $link_items[0]['url'] . '" class="campl-primary-cta">' . $link_items[0]['title'] . '</a></div>';
+      }
+
+      $styled_image = field_view_value('paragraphs_item', $vars['paragraphs_item'], 'field_image', $image_items[0], array( 
+         'type' => 'image',
+         'label' => 'hidden',
+         'settings' => array(
+           'image_style' => $vars['image_style'],
+         ),
+      ));
+      
+      $vars['styled_image'] = ($vars['has_image']) ? render($styled_image) : null;
+    }
+  }
+}
+
+

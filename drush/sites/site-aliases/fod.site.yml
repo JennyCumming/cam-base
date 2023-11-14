@@ -1,0 +1,4 @@
+local:
+  uri: 'https://fod.lndo.site'
+  paths:
+  - files: /app/sites/fod.local'

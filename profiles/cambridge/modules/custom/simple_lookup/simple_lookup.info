@@ -1,0 +1,12 @@
+name = Simple Lookup
+description = Provides simple access to basic Lookup information.
+core = 7.x
+php = 5.3
+package = University of Cambridge
+version = 7.x-1.1
+project = simple_lookup
+files[] = ibisclient/ibisclient/client/IbisClientConnection.php
+files[] = ibisclient/ibisclient/methods/GroupMethods.php
+files[] = ibisclient/ibisclient/methods/IbisMethods.php
+files[] = ibisclient/ibisclient/methods/InstitutionMethods.php
+files[] = ibisclient/ibisclient/methods/PersonMethods.php

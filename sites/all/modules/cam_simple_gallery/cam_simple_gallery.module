@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the cam simple gallery feature.
+ */
+
+include_once 'cam_simple_gallery.features.inc';

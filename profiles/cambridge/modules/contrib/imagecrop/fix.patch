@@ -1,0 +1,21 @@
+diff --git a/imagecrop.module b/imagecrop.module
+index 289764a..60e538c 100644
+--- a/imagecrop.module
++++ b/imagecrop.module
+@@ -402,9 +402,15 @@ function imagecrop_process_form_element($element) {
+     $element['#attributes']['class'][] = 'imagecrop-media';
+ 
+     // Old versus new version of media
+-    if (isset ($element['remove'])) {
++    // Media >= 7.x-2.0-alpha4
++    if (isset($element['remove_button'])) {
++      $element['remove_button']['#prefix'] = imagecrop_linkitem($element, $variables);
++    }
++    // Media <= 7.x-2.0-alpha3
++    elseif (isset($element['remove'])) {
+       $element['remove']['#prefix'] = imagecrop_linkitem($element, $variables);
+     }
++    // Media 7.x-1.x
+     else {
+       $variables['js_file'] = 'imagecrop_field_media_v1.js';
+       $element['preview']['#suffix'] .= imagecrop_linkitem($element, $variables);

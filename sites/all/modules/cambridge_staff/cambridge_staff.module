@@ -1,0 +1,213 @@
+<?php
+/**
+ * @file
+ * Code for the Cambridge Staff Directory feature.
+ */
+
+include_once 'cambridge_staff.features.inc';
+
+/**
+ * Implementation of hook_menu().
+ */
+function cambridge_staff_menu() {
+
+  $items = array();
+
+  $items['admin/config/system/staff'] = array(
+
+    'title'          => 'Staff Directory',
+    'description'    => 'Configure the Staff Directory',
+    'page callback'  => 'drupal_get_form',
+    'page arguments' => array('cambridge_staff_directory_form'),
+    'access arguments' => array('configure staff directory'),
+    'type'             => MENU_NORMAL_ITEM,
+    'file'             => 'cambridge_staff_admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_permission().
+ */
+function cambridge_staff_permission() {
+
+  $perm = array (
+    'configure staff directory' => array(
+      'title' => 'Staff directory',
+      'description' => 'Configure staff directory',
+     ),
+  );
+
+  return $perm;
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function cambridge_staff_form_staff_profile_node_form_alter (&$form, &$form_state, $form_id) {
+
+  if(empty($form['title']['#default_value'])) {
+    $form['title']['#default_value']= '<Auto>';
+  }
+  $form['title']['#description']= 'Use &lt;Auto&gt; to automatically create the title from the individual parts, or enter your own title';
+}
+
+/**
+ * Implementation of hook_node_presave().
+ */
+function cambridge_staff_node_presave($node) {
+
+  if($node->type == 'staff_profile') {
+    if(strtolower($node->title) == '<auto>') {
+ 
+      // Rebuild the title from the constituent parts.      
+      $title_array = array();
+
+      $field = field_get_items('node', $node, 'field_sd_honorific');
+      if(!empty($field)) {
+        $hon = field_view_value('node', $node, 'field_sd_honorific', $field[0]);
+        $title_array[] = render($hon);
+      }
+
+      $field = field_get_items('node', $node, 'field_sd_first_name');
+      if(!empty($field)) {
+        $first = field_view_value('node', $node, 'field_sd_first_name', $field[0]);
+        $title_array[] = render($first);      
+      }
+
+      $field = field_get_items('node', $node, 'field_sd_middle_name');
+      if(!empty($field)) {
+        $middle = field_view_value('node', $node, 'field_sd_middle_name', $field[0]);
+        $title_array[] = render($middle);
+      }
+
+      $field = field_get_items('node', $node, 'field_sd_last_name');
+      if(!empty($field)) {
+        $last = field_view_value('node', $node, 'field_sd_last_name', $field[0]);
+        $title_array[] = render($last);
+      }
+
+      $field = field_get_items('node', $node, 'field_sd_suffix');
+      if(!empty($field)) {
+        $suffix = field_view_value('node', $node, 'field_sd_suffix', $field[0]);
+        $title_array[] = render($suffix);
+      }
+
+      $node->title =  implode(" ", $title_array);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_entity_view_mode_alter().
+ */
+function cambridge_staff_entity_view_mode_alter(&$view_mode, $context) {
+
+  // If we are viewing a staff profile in 'full' then allow contact card display to kick in.
+  if ( $context['entity_type'] == 'node' && $context['entity']->type == 'staff_profile' && $view_mode == 'full') {
+
+    $card_setting = variable_get('cambridge_staff_card', 'never');
+
+    switch ($card_setting) {
+
+      case 'never':
+      default:
+        // leave view mode set as full
+        break;
+
+      case 'always':
+        $view_mode = 'contact_card';
+        break;
+
+      case 'auto':
+        if( _cambridge_staff_is_sparce_profile($context['entity'])) {
+          $view_mode = 'contact_card';    
+        }
+        break;
+    } 
+  }
+}
+
+/**
+ * Local function to check whether a profile is sparce.
+ *
+ * A profile is sparce if none of the long text fields have been filled in.
+ */
+function _cambridge_staff_is_sparce_profile($entity) {
+
+  $sparce =  (empty($entity->body) 
+           && empty($entity->field_sd_biography) 
+           && empty($entity->field_sd_key_publications)
+           && empty($entity->field_sd_other_publications) 
+           && empty($entity->field_sd_research_interests) 
+           && empty($entity->field_sd_research_supervision) 
+           && empty($entity->field_sd_teaching)
+           && empty($entity->field_other_professional_activit) );
+  
+  return $sparce;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function cambridge_staff_block_info() {
+  $blocks = array();
+  $blocks['profile_link'] = array(
+    'info' => t('Link to a users main profile'),
+  );
+  
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function cambridge_staff_block_view($delta='') {
+  $block = array();
+
+  switch($delta) {
+    case 'profile_link' :
+      $object = menu_get_object('user');
+      $block['content'] =  (!empty($object)) ? _cambridge_staff_profile_link_view($object) : '';
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Generate a link to the staff profile for this user.
+ * @return
+ *   returns block content string.
+ */
+function _cambridge_staff_profile_link_view($object) {
+
+//dpm($object, 'the menu object');
+  $output = '';
+  $crsid = $object->name;
+
+  if(isset($crsid)) {
+    // find matching staff profile - if more than one use the most recent
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'staff_profile')
+        ->fieldCondition('field_sd_crsid', 'value', $crsid, '=')
+        ->propertyOrderBy('created', 'DESC');
+    $result = $query->execute();
+
+//dpm($result, 'result'); 
+
+    if(isset($result['node'])) { 
+      $nids = array_keys($result['node']);
+      $nid = $nids[0];
+      $node_title = node_load($nid)->title;
+
+      $output = '<div class="campl-message-box">';
+      $output .= 'You can see the ' . l("full profile for $node_title here. ", "node/$nid");
+      $output .= '</div>';
+    }
+  }
+
+  return $output;
+}

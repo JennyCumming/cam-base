@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Cam Quick Links feature.
+ */
+
+include_once 'cam_quick_links.features.inc';

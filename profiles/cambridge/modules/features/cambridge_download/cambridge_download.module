@@ -1,0 +1,22 @@
+<?php
+/**
+ * @file
+ * Code for the Download feature.
+ */
+
+include_once 'cambridge_download.features.inc';
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function cambridge_download_entity_info_alter(&$entity_info) {
+
+  $entity_info['node']['view modes'] += array(
+    'download_list_item' => array(
+      'label' => t('Download list item'),
+      'custom settings' => FALSE,
+    ),
+  );
+}
+
+

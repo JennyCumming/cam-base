@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * Implements hook_requirements().
+ */
+function cambridge_download_requirements($phase) {
+  $t = get_t();
+  $requirements = array();
+
+  if (!variable_get('file_private_path')):
+    $requirements['file_private_path'] = array(
+      'title' => $t('Private files'),
+      'severity' => REQUIREMENT_ERROR,
+    );
+    if ('install' === $phase) {
+      $requirements['file_private_path']['description'] = $t('A private file path must be set.');
+    }
+    else {
+      $requirements['file_private_path']['value'] = $t('Disabled');
+    }
+  endif;
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_install.
+ */
+function cambridge_download_install() {
+
+  $settings = field_bundle_settings('node', 'download');
+  $settings['view_modes']['download_list_item']['custom_settings'] = TRUE;
+  field_bundle_settings('node', 'download', $settings);
+
+}
+
+
+
+

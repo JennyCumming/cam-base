@@ -1,0 +1,102 @@
+<?php
+
+/**
+ * Implements hook_menu();
+ */
+function lookup_roles_menu() {
+  $items = array();
+
+  $items['admin/config/people/raven/lookup_roles'] = array(
+    'title' => 'Cambridge Lookup Roles',
+    'description' => 'Settings to configure Cambridge Lookup Roles.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('lookup_roles_settings_form'),
+    'access arguments' => array('administer cambridge lookup roles'),
+    'file' => 'lookup_roles.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_user_login
+ *
+ * Maps Lookup institution names to existing Drupal roles of the same name.
+ * Additionally a Cam-only role.
+ */
+function lookup_roles_user_login(&$edit, $account) {
+
+	// get person's groups from Lookup 
+	$PersonMethods = new PersonMethods(_simple_lookup_connection());
+	$person = $PersonMethods->getPerson('crsid', $account->name, 'all_groups');
+
+	// make sure we have a raven connection and a person object
+	if (isset($PersonMethods) && isset($person)) {
+		// dpm($person, '$person');
+
+		// check user is not cancelled in lookup
+		if ( !$person->cancelled) {
+
+			// get all non-Drupal roles (start with all Drupal roles and remove Drupal-specific ones)
+			$non_drupal_roles = user_roles();
+			// dpm($non_drupal_roles, '$non_drupal_roles');
+
+			// remove Drupal-specific roles because we want to be left with roles which could be lookup groups (lowered-cased)
+			// N.B. use t() to catch potentially translated/string-overriden role names
+			unset($non_drupal_roles[array_search(t('anonymous user'), $non_drupal_roles, true)]);
+			unset($non_drupal_roles[array_search(t('authenticated user'), $non_drupal_roles, true)]);
+			unset($non_drupal_roles[array_search(t('administrator'), $non_drupal_roles, true)]);
+			// dpm($non_drupal_roles, '$non_drupal_roles');
+
+			// get person's lookup group names
+			$person_group_names = array_values(array_map(function($var){ return $var->name; }, $person->groups));
+			// dpm($person_group_names, '$person_group_names');
+
+			// dpm(array_intersect($person_group_names, $non_drupal_roles), 'intersect');
+
+			// The current user should have the roles which are the intersection of their groups 
+			// and the non-Drupal roles (the latter COULD include non-group roles)
+			$role_names_user_should_have = array_intersect($person_group_names, $non_drupal_roles);
+
+			// check user should have some roles - if so add them
+			if (count($role_names_user_should_have) > 0 ) {
+
+				// get list of roles indirectly managed by Lookup from 'Restricted Content' vocabulary
+				// this allows per-site config of roles managed by this process (and allows additional
+				// non-Lookup roles to be used and left unaffected)
+				$lookup_group_roles_vocabulary = taxonomy_vocabulary_machine_name_load('lookup_group_roles');
+				$lookup_group_roles_terms = entity_load('taxonomy_term', FALSE, array('vid' => $lookup_group_roles_vocabulary->vid));
+				//dpm($lookup_group_roles_terms, '$lookup_group_roles_terms');
+				$lookup_managed_role_names = array_values(array_map(function($var){ return $var->name; }, $lookup_group_roles_terms));
+				// dpm($lookup_managed_role_names, '$lookup_managed_role_names');
+
+				// dpm($account->roles, '$account->roles');
+
+				// We need to ensure all user's Lookup managed roles are correct. 
+				// Remove all user's roles which are Lookup managed roles (array diff)
+				// (before adding back the Lookup managed roles they are entitled to)
+				$roles_user_should_have = array_diff($account->roles, $lookup_managed_role_names);
+
+				// dpm($roles_user_should_have, '$roles_user_should_have');
+
+				// add (back - if they already exist) the Lookup managed roles the user is entitled to
+				foreach ($role_names_user_should_have as $key => $role_name_user_should_have) {
+					$role_user_should_have = user_role_load_by_name($role_name_user_should_have);
+					$roles_user_should_have[$role_user_should_have->rid] = $role_name_user_should_have;
+				}
+				// dpm($roles_user_should_have, '$roles_user_should_have');
+				user_save($account, array('roles' => $roles_user_should_have));
+			}
+		}
+		else {
+			// user is not active: block user if so configured in cam_lookup_roles:remove_roles_if_cancelled_in_lookup
+			// this is possibly unnecessary - since if they are cancelled the Raven authentication will fail?
+			if ( variable_get('cam_lookup_roles:remove_roles_if_cancelled_in_lookup', 'no') == 'yes') {
+				$roles_user_should_have = array();
+				//$account->status = 0;
+				user_save($account, array('roles' => $roles_user_should_have));
+			}
+		}
+	}
+}
